@@ -50,6 +50,20 @@
       "when": 1793543012075,
       "tag": "0006_curious_shockwave",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793548663507,
+      "tag": "0007_lonely_dexter_bennett",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793549068578,
+      "tag": "0008_whole_amphibian",
+      "breakpoints": true
     }
   ]
 }

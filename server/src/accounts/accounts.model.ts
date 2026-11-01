@@ -60,6 +60,46 @@ export const crmPaymentReceipts = sqliteTable(
   ],
 );
 
+export const crmPaymentAttributionCorrections = sqliteTable(
+  'payment_attribution_corrections',
+  {
+    id: text('id').primaryKey(),
+    receipt_id: text('receipt_id')
+      .notNull()
+      .references(() => crmPaymentReceipts.id, { onDelete: 'restrict' }),
+    destination_receipt_id: text('destination_receipt_id')
+      .notNull()
+      .references(() => crmPaymentReceipts.id, { onDelete: 'restrict' }),
+    source_customer_id: text('source_customer_id')
+      .notNull()
+      .references(() => crmCustomers.id, { onDelete: 'restrict' }),
+    correct_customer_id: text('correct_customer_id')
+      .notNull()
+      .references(() => crmCustomers.id, { onDelete: 'restrict' }),
+    amount_paise: integer('amount_paise').notNull(),
+    reason: text('reason').notNull(),
+    action_id: text('action_id').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (t) => [
+    index('payment_attribution_corrections_receipt_id_idx').on(t.receipt_id),
+    index('payment_attribution_corrections_source_customer_idx').on(
+      t.source_customer_id,
+    ),
+    index('payment_attribution_corrections_correct_customer_idx').on(
+      t.correct_customer_id,
+    ),
+    check(
+      'payment_attribution_corrections_amount_check',
+      sql`typeof(${t.amount_paise}) = 'integer' and ${t.amount_paise} > 0`,
+    ),
+    check(
+      'payment_attribution_corrections_distinct_customers_check',
+      sql`${t.source_customer_id} <> ${t.correct_customer_id}`,
+    ),
+  ],
+);
+
 export const crmPaymentAllocations = sqliteTable(
   'payment_allocations',
   {

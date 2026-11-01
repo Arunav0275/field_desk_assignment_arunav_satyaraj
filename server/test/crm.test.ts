@@ -1346,4 +1346,61 @@ describe('CRM operations', { concurrency: false }, () => {
     const sales = users.listActive().find((user) => user.role === 'SALES')!;
     assert.deepEqual(queries.bootstrap(sales).actors, [sales]);
   });
+
+  it('corrects a payment recorded against the wrong customer without changing the original receipt', () => {
+    const report = fixture('customer-payment');
+    const sourceCustomerId = report.customerId;
+
+    const target = customers.createCustomer(admin, {
+      name: 'Correct payment customer',
+      code: randomUUID(),
+    });
+
+    const originalReceipt = accounts
+      .ledger(sourceCustomerId)
+      .receipts[0]!;
+
+    const originalReceiptCopy = { ...originalReceipt };
+    const amountPaise = Number(originalReceipt.amount_paise);
+
+    const sourceBefore = accounts.summary(sourceCustomerId);
+    const targetBefore = accounts.summary(target.id);
+
+    const result = run({
+      type: 'CORRECT_PAYMENT_ATTRIBUTION',
+      payload: {
+        receiptId: String(originalReceipt.id),
+        customerId: sourceCustomerId,
+        correctCustomerId: target.id,
+        amountPaise,
+        reason: 'Payment was received from the correct customer but posted to the wrong account',
+      },
+    });
+
+    assert.equal(
+      result.status,
+      'APPLIED',
+      `Payment correction failed: ${JSON.stringify(result.errors)}`,
+    );
+
+    const sourceAfter = accounts.summary(sourceCustomerId);
+    const targetAfter = accounts.summary(target.id);
+
+    assert.equal(
+      sourceAfter.receivedPaise,
+      sourceBefore.receivedPaise - amountPaise,
+    );
+    assert.equal(
+      targetAfter.receivedPaise,
+      targetBefore.receivedPaise + amountPaise,
+    );
+
+    const preservedReceipt = accounts
+      .ledger(sourceCustomerId)
+      .receipts.find((row) => row.id === originalReceipt.id);
+
+    assert.deepEqual(preservedReceipt, originalReceiptCopy);
+    check(sourceAfter);
+    check(targetAfter);
+  });
 });

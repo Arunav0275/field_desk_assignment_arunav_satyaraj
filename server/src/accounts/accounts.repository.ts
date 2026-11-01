@@ -9,6 +9,7 @@ import {
   crmReceivableEntries,
   crmPaymentReceipts,
   crmPaymentAllocations,
+  crmPaymentAttributionCorrections,
 } from '../accounts/accounts.model.js';
 
 @Injectable()
@@ -60,6 +61,64 @@ export class AccountsRepository {
         .where(eq(crmPaymentAllocations.receipt_id, receiptId))
         .get()?.value ?? 0,
     );
+  }
+  allocationsForReceipt(receiptId: string) {
+    return this.db
+      .select()
+      .from(crmPaymentAllocations)
+      .where(eq(crmPaymentAllocations.receipt_id, receiptId))
+      .orderBy(insertionOrder(crmPaymentAllocations))
+      .all();
+  }
+  findReceipt(id: string) {
+    return this.db
+      .select()
+      .from(crmPaymentReceipts)
+      .where(eq(crmPaymentReceipts.id, id))
+      .get();
+  }
+
+  correctionsForReceipt(receiptId: string) {
+    return this.db
+      .select()
+      .from(crmPaymentAttributionCorrections)
+      .where(eq(crmPaymentAttributionCorrections.receipt_id, receiptId))
+      .orderBy(insertionOrder(crmPaymentAttributionCorrections))
+      .all();
+  }
+
+  correctedOutForReceipt(receiptId: string) {
+    return safe(
+      this.db
+        .select({
+          value: sum(crmPaymentAttributionCorrections.amount_paise).mapWith(Number),
+        })
+        .from(crmPaymentAttributionCorrections)
+        .where(eq(crmPaymentAttributionCorrections.receipt_id, receiptId))
+        .get()?.value ?? 0,
+    );
+  }
+
+  correctedOutForCustomer(customerId: string) {
+    return safe(
+      this.db
+        .select({
+          value: sum(crmPaymentAttributionCorrections.amount_paise).mapWith(Number),
+        })
+        .from(crmPaymentAttributionCorrections)
+        .where(
+          eq(crmPaymentAttributionCorrections.source_customer_id, customerId),
+        )
+        .get()?.value ?? 0,
+    );
+  }
+
+  insertAttributionCorrection(
+    c: ActionContext,
+    row: typeof crmPaymentAttributionCorrections.$inferInsert,
+  ) {
+    this.db.insert(crmPaymentAttributionCorrections).values(row).run();
+    recordInsert(c, 'payment_attribution_corrections', row, true);
   }
   chargesInDueOrder(customerId: string) {
     return this.db

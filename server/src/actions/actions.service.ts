@@ -194,6 +194,12 @@ export class ActionsService {
               case 'RECEIVE_CUSTOMER_PAYMENT':
                 this.accountsService.receive(c, envelope.command.payload);
                 break;
+              case 'CORRECT_PAYMENT_ATTRIBUTION':
+                this.accountsService.correctPaymentAttribution(
+                  c,
+                  envelope.command.payload,
+                );
+                break;
               case 'ALLOCATE_PAYMENT':
                 this.accountsService.allocate(c, envelope.command.payload);
                 break;
@@ -225,34 +231,59 @@ export class ActionsService {
                 this.fulfillmentService.correct(c, envelope.command.payload);
                 break;
             }
-            this.customersRepository.updateCustomer(c, c.customerId, {
-              version:
-                this.accountsService.summary(c.customerId).customer.version + 1,
-            });
-            for (const order of this.ordersRepository.forCustomer(c.customerId))
-              this.ordersRepository.updateOrder(c, order.id, {
-                version: order.version + 1,
+            const affectedCustomerIds =
+              envelope.command.type === 'CORRECT_PAYMENT_ATTRIBUTION'
+                ? [
+                    envelope.command.payload.customerId,
+                    envelope.command.payload.correctCustomerId,
+                  ]
+                : [c.customerId];
+
+            const reviews = [];
+
+            for (const customerId of affectedCustomerIds) {
+              const customer = this.customersRepository.findById(customerId);
+              if (!customer) fail('CUSTOMER_NOT_FOUND', 'Customer not found');
+
+              this.customersRepository.updateCustomer(c, customerId, {
+                version: customer.version + 1,
               });
-            result.aggregateVersions[c.customerId] =
-              this.customersRepository.findById(c.customerId)!.version;
-            for (const order of this.ordersRepository.forCustomer(c.customerId))
-              result.aggregateVersions[order.id] = order.version;
-            this.auditRepository.insertEvent(c, {
-              id: randomUUID(),
-              customer_id: c.customerId,
-              order_id: c.orderId ?? null,
-              actor_id: actor.id,
-              actor_name: actor.name,
-              requested_by: requester.id,
-              action_id: c.id,
-              type: envelope.command.type,
-              payload: JSON.stringify(envelope.command.payload),
-              occurred_at: c.now,
-            });
-            result.review = this.auditService.review(c.customerId);
-            const failedChecks = result.review.checks.filter(
-              (check) => !check.passed,
+
+              for (const order of this.ordersRepository.forCustomer(customerId)) {
+                this.ordersRepository.updateOrder(c, order.id, {
+                  version: order.version + 1,
+                });
+              }
+
+              result.aggregateVersions[customerId] =
+                this.customersRepository.findById(customerId)!.version;
+
+              for (const order of this.ordersRepository.forCustomer(customerId)) {
+                result.aggregateVersions[order.id] = order.version;
+              }
+
+              this.auditRepository.insertEvent(c, {
+                id: randomUUID(),
+                customer_id: customerId,
+                order_id: c.orderId ?? null,
+                actor_id: actor.id,
+                actor_name: actor.name,
+                requested_by: requester.id,
+                action_id: c.id,
+                type: envelope.command.type,
+                payload: JSON.stringify(envelope.command.payload),
+                occurred_at: c.now,
+              });
+
+              reviews.push(this.auditService.review(customerId));
+            }
+
+            result.review = reviews[0];
+
+            const failedChecks = reviews.flatMap((review) =>
+              review.checks.filter((check) => !check.passed),
             );
+
             if (failedChecks.length)
               fail(
                 'ACCOUNT_INCONSISTENT',

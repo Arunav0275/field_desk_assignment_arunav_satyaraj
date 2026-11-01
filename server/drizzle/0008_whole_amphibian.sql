@@ -1,0 +1,1 @@
+ALTER TABLE `payment_attribution_corrections` ADD `destination_receipt_id` text NOT NULL REFERENCES payment_receipts(id);

@@ -98,6 +98,13 @@ export const crmActionSchema = z.discriminatedUnion('type', [
     amountPaise: amount,
     reference: z.string().trim().min(1).max(200),
   }),
+  action('CORRECT_PAYMENT_ATTRIBUTION', {
+    receiptId: id,
+    customerId: id,
+    correctCustomerId: id,
+    amountPaise: amount,
+    reason,
+  }),
   action('ALLOCATE_PAYMENT', { customerId: id }),
   action('REDEEM_POINTS', { customerId: id, chargeId: id, points: amount }),
   action('ISSUE_CREDIT_NOTE', { customerId: id, amountPaise: amount, reason }),
