@@ -3,6 +3,8 @@
 - [Business guide: terms and canonical rules](candidate-walkthrough/README.md)
 - [CRM navigation, customer records, and order forms](operations.md)
 - [Architecture, authentication, and deployment](architecture.md)
+- [Architecture evolution and design decisions](architecture_evolution/README.md)
+- [Evaluator notes](Evaluator_notes.md)
 - [API and role access](api.md)
 - [Backend module responsibilities](../server/src/README.md)
 - [Business reference and terms version](business-terms.md)
