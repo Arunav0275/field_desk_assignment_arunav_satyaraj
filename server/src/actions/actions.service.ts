@@ -182,6 +182,9 @@ export class ActionsService {
               case 'CONFIRM_DELIVERY':
                 this.fulfillmentService.deliver(c, envelope.command.payload);
                 break;
+              case 'CORRECT_DELIVERY':
+                this.fulfillmentService.correctDelivery(c, envelope.command.payload);
+                break;
               case 'CANCEL_REMAINDER':
                 this.ordersService.cancel(c, envelope.command.payload);
                 break;

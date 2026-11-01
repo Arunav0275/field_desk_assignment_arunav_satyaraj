@@ -8,6 +8,8 @@ import { AccountsModule } from '../accounts/accounts.module.js';
 import { RewardsModule } from '../rewards/rewards.module.js';
 import { CatalogRepositoryModule } from '../catalog/catalog.repository.js';
 import { ReturnsRepositoryModule } from '../returns/returns.repository.js';
+import { CreditsRepositoryModule } from '../credits/credits.repository.js';
+import { RewardsRepositoryModule } from '../rewards/rewards.repository.js';
 @Module({
   imports: [
     OrdersRepositoryModule,
@@ -17,6 +19,8 @@ import { ReturnsRepositoryModule } from '../returns/returns.repository.js';
     RewardsModule,
     CatalogRepositoryModule,
     ReturnsRepositoryModule,
+    CreditsRepositoryModule,
+    RewardsRepositoryModule,
   ],
   controllers: [FulfillmentController],
   providers: [FulfillmentService],

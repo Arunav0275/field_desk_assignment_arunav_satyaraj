@@ -287,9 +287,8 @@ export class AuditService {
         [delivery.id],
       );
     }
-    const deliveredValue = safe(
-      deliveries.reduce((sum, row) => sum + row.qty * row.unit_price_paise, 0),
-    );
+    const deliveredValue =
+      this.fulfillmentRepository.deliveredValueForCustomer(customerId);
     const returnedValue = this.returnsRepository.grossForCustomer(customerId);
     const fees = this.returnsRepository.feesForCustomer(customerId);
     const posted = this.accountsRepository.postedForCustomer(customerId);

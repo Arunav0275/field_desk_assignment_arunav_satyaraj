@@ -122,7 +122,7 @@ describe('CRM operations', { concurrency: false }, () => {
         : accounts.summary(payload.customerId).customer.version);
     return actions.execute(
       { command, actorId: actor.id, idempotencyKey: key, expectedVersion },
-      admin,
+      actor,
     );
   };
   it('accepts advances without charges and allocates them at delivery', () => {
@@ -175,6 +175,98 @@ describe('CRM operations', { concurrency: false }, () => {
     check(summary);
     assert.equal(summary.unappliedCashPaise, 5000);
     assert.equal(summary.points.available, 1000);
+  });
+
+  it('corrects overstated delivery and allows the remaining units to be delivered later', () => {
+    const report = fixture('partial-delivery');
+    const order = orders
+      .list()
+      .find((row) => row.customer_id === report.customerId)!;
+
+    const detail = orders.detail(order.id);
+    const shipment = detail.shipments[0]!;
+    const line = shipment.lines[0]!;
+
+    assert.equal(line.dispatched_qty, 10);
+    assert.equal(line.delivered, 10);
+    assert.equal(shipment.status, 'DELIVERED');
+
+    const kam = users.listActive().find((user) => user.role === 'KAM')!;
+
+    const corrected = run(
+      {
+        type: 'CORRECT_DELIVERY',
+        payload: {
+          orderId: order.id,
+          shipmentId: shipment.id,
+          items: [
+            {
+              shipmentLineId: line.id,
+              correctedDeliveredQty: 6,
+            },
+          ],
+          reason: 'Only 6 of 10 dispatched units physically arrived',
+        },
+      },
+      kam,
+    );
+
+    assert.equal(
+      corrected.status,
+      'APPLIED',
+      `CORRECT_DELIVERY was rejected: ${JSON.stringify(corrected.errors)}`,
+    );
+
+    let updated = orders.detail(order.id);
+    assert.equal(updated.lines[0]!.delivered, 6);
+    assert.equal(updated.shipments[0]!.status, 'DISPATCHED');
+
+    check(accounts.summary(report.customerId));
+
+    const remaining = run({
+      type: 'CONFIRM_DELIVERY',
+      payload: {
+        orderId: order.id,
+        shipmentId: shipment.id,
+        items: [
+          {
+            shipmentLineId: line.id,
+            qty: 4,
+          },
+        ],
+      },
+    });
+
+    assert.equal(remaining.status, 'APPLIED');
+
+    updated = orders.detail(order.id);
+    assert.equal(updated.lines[0]!.delivered, 10);
+    assert.equal(updated.shipments[0]!.status, 'DELIVERED');
+
+    check(accounts.summary(report.customerId));
+
+    const sales = users.listActive().find((user) => user.role === 'SALES')!;
+
+    const forbidden = run(
+      {
+        type: 'CORRECT_DELIVERY',
+        payload: {
+          orderId: order.id,
+          shipmentId: shipment.id,
+          items: [
+            {
+              shipmentLineId: line.id,
+              correctedDeliveredQty: 6,
+            },
+          ],
+          reason: 'Unauthorized correction attempt',
+        },
+      },
+      sales,
+    );
+
+    assert.equal(forbidden.status, 'REJECTED');
+    assert.equal(forbidden.errors[0]?.code, 'FORBIDDEN');
   });
 
   it('handles partial payments, partial returns, refund limits, and credit reversals', () => {
@@ -562,7 +654,11 @@ describe('CRM operations', { concurrency: false }, () => {
         shipmentId: detail.shipments[0]!.id,
       },
     });
-    assert.equal(corrected.status, 'APPLIED');
+    assert.equal(
+      corrected.status,
+      'APPLIED',
+      `CORRECT_DELIVERY was rejected: ${JSON.stringify(corrected.errors)}`,
+    );
     const changed = orders.detail(order.id);
     assert.equal(JSON.stringify(changed.shipments[0]), old);
     assert.equal(

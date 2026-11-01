@@ -130,6 +130,42 @@ export const crmCorrections = sqliteTable(
   ],
 );
 
+export const crmDeliveryCorrections = sqliteTable(
+  'delivery_corrections',
+  {
+    id: text('id').primaryKey(),
+    shipment_line_id: text('shipment_line_id')
+      .notNull()
+      .references(() => crmShipmentLines.id, { onDelete: 'cascade' }),
+    order_id: text('order_id')
+      .notNull()
+      .references(() => crmOrders.id, { onDelete: 'cascade' }),
+    original_delivered_qty: integer('original_delivered_qty').notNull(),
+    corrected_delivered_qty: integer('corrected_delivered_qty').notNull(),
+    reason: text('reason').notNull(),
+    action_id: text('action_id').notNull(),
+    created_at: text('created_at').notNull(),
+  },
+  (t) => [
+    index('delivery_corrections_shipment_line_id_idx').on(
+      t.shipment_line_id,
+    ),
+    index('delivery_corrections_order_id_idx').on(t.order_id),
+    check(
+      'delivery_corrections_original_qty_check',
+      sql`typeof(${t.original_delivered_qty}) = 'integer' and ${t.original_delivered_qty} >= 0`,
+    ),
+    check(
+      'delivery_corrections_corrected_qty_check',
+      sql`typeof(${t.corrected_delivered_qty}) = 'integer' and ${t.corrected_delivered_qty} >= 0`,
+    ),
+    check(
+      'delivery_corrections_reduction_check',
+      sql`${t.corrected_delivered_qty} < ${t.original_delivered_qty}`,
+    ),
+  ],
+);
+
 export type ShipmentRecord = typeof crmShipments.$inferSelect;
 export type ShipmentLineRecord = typeof crmShipmentLines.$inferSelect;
 export class ShipmentQuantity {

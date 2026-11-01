@@ -19,6 +19,7 @@ import {
   crmShipmentLines,
   crmDeliveries,
   crmCorrections,
+  crmDeliveryCorrections,
 } from '../fulfillment/fulfillment.model.js';
 
 @Injectable()
@@ -108,13 +109,29 @@ export class FulfillmentRepository {
       .get();
   }
   deliveredForShipmentLine(lineId: string) {
-    return safe(
+    const recordedDeliveries = safe(
       this.db
         .select({ value: sum(crmDeliveries.qty).mapWith(Number) })
         .from(crmDeliveries)
         .where(eq(crmDeliveries.shipment_line_id, lineId))
         .get()?.value ?? 0,
+      );
+
+    const corrections = this.db
+      .select()
+      .from(crmDeliveryCorrections)
+      .where(eq(crmDeliveryCorrections.shipment_line_id, lineId))
+      .all();
+
+    const totalReduction = corrections.reduce(
+      (total, correction) =>
+        total +
+        correction.original_delivered_qty -
+        correction.corrected_delivered_qty,
+      0,
     );
+
+    return safe(recordedDeliveries - totalReduction);
   }
   undeliveredForShipment(shipmentId: string) {
     return safe(
@@ -196,16 +213,18 @@ export class FulfillmentRepository {
     );
   }
   deliveredForLine(lineKey: string) {
+    const lines = this.db
+      .select()
+      .from(crmShipmentLines)
+      .where(eq(crmShipmentLines.line_key, lineKey))
+      .all();
+
     return safe(
-      this.db
-        .select({ value: sum(crmDeliveries.qty).mapWith(Number) })
-        .from(crmDeliveries)
-        .innerJoin(
-          crmShipmentLines,
-          eq(crmShipmentLines.id, crmDeliveries.shipment_line_id),
-        )
-        .where(eq(crmShipmentLines.line_key, lineKey))
-        .get()?.value ?? 0,
+      lines.reduce(
+        (total, line) =>
+          total + this.deliveredForShipmentLine(line.id),
+        0,
+      ),
     );
   }
   forOrder(orderId: string) {
@@ -232,6 +251,30 @@ export class FulfillmentRepository {
       .where(eq(crmOrders.customer_id, customerId))
       .orderBy(insertionOrder(crmDeliveries))
       .all();
+  }
+  deliveredValueForCustomer(customerId: string) {
+    const lines = this.db
+      .select({
+        id: crmShipmentLines.id,
+        unit_price_paise: crmShipmentLines.unit_price_paise,
+      })
+      .from(crmShipmentLines)
+      .innerJoin(
+        crmOrders,
+        eq(crmOrders.id, crmShipmentLines.order_id),
+      )
+      .where(eq(crmOrders.customer_id, customerId))
+      .all();
+
+    return safe(
+      lines.reduce(
+        (total, line) =>
+          total +
+          this.deliveredForShipmentLine(line.id) *
+            line.unit_price_paise,
+        0,
+      ),
+    );
   }
   correctionsForCustomer(customerId: string) {
     return this.db
@@ -292,6 +335,13 @@ export class FulfillmentRepository {
   insertDelivery(c: ActionContext, row: typeof crmDeliveries.$inferInsert) {
     this.db.insert(crmDeliveries).values(row).run();
     recordInsert(c, 'deliveries', row, false);
+  }
+  insertDeliveryCorrection(
+    c: ActionContext,
+    row: typeof crmDeliveryCorrections.$inferInsert,
+  ) {
+    this.db.insert(crmDeliveryCorrections).values(row).run();
+    recordInsert(c, 'delivery_corrections', row, false);
   }
   insertCorrection(c: ActionContext, row: typeof crmCorrections.$inferInsert) {
     this.db.insert(crmCorrections).values(row).run();
