@@ -1,0 +1,13 @@
+node_modules/
+dist/
+dist-test/
+coverage/
+.env
+.env.*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+*.tsbuildinfo
+.DS_Store
+reports/

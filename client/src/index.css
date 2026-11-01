@@ -1,0 +1,75 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #eff6ff;
+  --color-secondary-foreground: #1d4ed8;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0f172a;
+  --color-destructive: #b43f3f;
+  --color-border: #e2e8f0;
+  --color-input: #cbd5e1;
+  --color-ring: #60a5fa;
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --primary: #2563eb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply m-0 bg-background font-sans text-foreground;
+  }
+  button:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+  ::selection {
+    background: #bfdbfe;
+    color: #1e3a8a;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer components {
+  .crm-table {
+    @apply w-full text-left text-sm;
+  }
+  .crm-table thead {
+    @apply border-b bg-slate-50 text-xs text-muted-foreground;
+  }
+  .crm-table th {
+    @apply whitespace-nowrap px-5 py-3 font-medium;
+  }
+  .crm-table td {
+    @apply px-5 py-4;
+  }
+  .crm-table tbody tr {
+    @apply border-b last:border-0 hover:bg-slate-50/60;
+  }
+}
